@@ -16,11 +16,14 @@ var emptyFontMatterMatcher = regexp.MustCompile(`(?s)^---\n+---\n+`)
 
 // T struct for unmarshal
 type T struct {
-	Layout string
-	Title  string
-	Date   string
-	Image  string
-	Tags   []string
+	// Layout     string
+	Title      string
+	Date       string
+	Tags       []string
+	Permalink  string
+	Published  bool
+	Category   string
+	Categories []string
 }
 
 func check(e error) {
@@ -36,8 +39,6 @@ func main() {
 
 	source = bytes.Replace(source, []byte("\r\n"), []byte("\n"), -1)
 	if match := frontMatterMatcher.FindSubmatchIndex(source); match != nil {
-		fmt.Println(match)
-		fmt.Println(string(source[match[2]:match[3]]))
 		if err = yaml.Unmarshal(source[match[2]:match[3]], &fm); err != nil {
 			return
 		}
