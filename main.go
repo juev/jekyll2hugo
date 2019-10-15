@@ -2,28 +2,37 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"regexp"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
 
 const fmMagic = "---\n"
 
-var frontMatterMatcher = regexp.MustCompile(`(?s)^---\n(.+?\n)---\n+`)
+var frontMatterMatcher = regexp.MustCompile(`(?s)^---\n(.+?\n)---\n+(.*)`)
 var emptyFontMatterMatcher = regexp.MustCompile(`(?s)^---\n+---\n+`)
 
-// T struct for unmarshal
-type T struct {
+var src = flag.String("src", "_posts", "Source directory with jekyll posts")
+var dst = flag.String("dst", "hugo", "Destination directory with hugo posts")
+
+// FrontMatter struct for unmarshal
+type FrontMatter struct {
 	// Layout     string
-	Title      string
-	Date       string
-	Tags       []string
-	Permalink  string
-	Published  bool
-	Category   string
-	Categories []string
+	Title     string
+	Date      string
+	Tags      []string
+	Permalink string
+	// Published   bool
+	Category    string
+	Categories  []string
+	Keywords    string
+	Description string
 }
 
 func check(e error) {
@@ -32,22 +41,73 @@ func check(e error) {
 	}
 }
 
-func main() {
-	source, err := ioutil.ReadFile("./example/2019-09-08-programming-language-performance.markdown")
-	check(err)
-	fm := T{}
+// FileHasFrontMatter returns a bool indicating whether the
+// file looks like it has frontmatter.
+func FileHasFrontMatter(source string) (bool, error) {
+	return string(source[:4]) == fmMagic, nil
+}
 
+func parse(f string) string {
+	source, err := ioutil.ReadFile(f)
+	check(err)
+	fm := FrontMatter{}
 	source = bytes.Replace(source, []byte("\r\n"), []byte("\n"), -1)
-	if match := frontMatterMatcher.FindSubmatchIndex(source); match != nil {
-		if err = yaml.Unmarshal(source[match[2]:match[3]], &fm); err != nil {
-			return
+	hasFM, err := FileHasFrontMatter(string(source))
+	check(err)
+	var body string
+	if hasFM {
+		if match := frontMatterMatcher.FindSubmatch(source); match != nil {
+			if err = yaml.Unmarshal(match[1], &fm); err != nil {
+				return string(source)
+			}
+			body = string(match[2])
 		}
 	}
-	// err = yaml.Unmarshal([]byte(dat), &t)
-	// check(err)
-	// fmt.Print(string(dat))
-	fmt.Printf("--- t:\n%v\n\n", fm)
-	d, err := yaml.Marshal(&fm)
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	date, _ := time.ParseInLocation("2006-01-02 15:04", fm.Date, moscow)
+	result := "---\n" +
+		"title: " + fm.Title + "\n" +
+		"date: " + date.Format("2006-01-02T15:04:05-0700") + "\n"
+	if fm.Tags != nil {
+		result += "tags:" + "\n"
+		for _, tag := range fm.Tags {
+			result += "  - " + tag + "\n"
+		}
+	}
+	if fm.Permalink != "" {
+		result += "permalink: " + fm.Permalink + "\n"
+	}
+	if fm.Category != "" {
+		result += "category: " + fm.Category + "\n"
+	}
+	if fm.Categories != nil {
+		result += "category: " + "\n"
+		for _, category := range fm.Categories {
+			result += "  - " + category + "\n"
+		}
+	}
+	if fm.Keywords != "" {
+		result += "keywords: " + fm.Keywords + "\n"
+	}
+	if fm.Description != "" {
+		result += "description: " + fm.Description + "\n"
+	}
+	result += "---\n" + body
+	return result
+}
+
+func main() {
+	flag.Parse()
+	if _, err := os.Stat(*src); os.IsNotExist(err) {
+		fmt.Println(*src + ": file or directory not found")
+		os.Exit(1)
+	}
+
+	files, err := ioutil.ReadDir(*src)
 	check(err)
-	fmt.Printf("--- m dump:\n%s\n\n", string(d))
+	for _, file := range files {
+		full, _ := filepath.Abs(*src + file.Name())
+		content := parse(full)
+		fmt.Println(full + ":\n" + content)
+	}
 }
