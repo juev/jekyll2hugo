@@ -66,8 +66,8 @@ func parse(f string) string {
 	moscow, err := time.LoadLocation("Europe/Moscow")
 	date, _ := time.ParseInLocation("2006-01-02 15:04", fm.Date, moscow)
 	result := "---\n" +
-		"title: " + fm.Title + "\n" +
-		"date: " + date.Format("2006-01-02T15:04:05-0700") + "\n"
+		"title: \"" + fm.Title + "\"\n" +
+		"date: \"" + date.Format("2006-01-02T15:04:05-0700") + "\"\n"
 	if fm.Tags != nil {
 		result += "tags:" + "\n"
 		for _, tag := range fm.Tags {
@@ -105,9 +105,11 @@ func main() {
 
 	files, err := ioutil.ReadDir(*src)
 	check(err)
+	os.MkdirAll(*dst, os.ModePerm)
 	for _, file := range files {
 		full, _ := filepath.Abs(*src + file.Name())
 		content := parse(full)
-		fmt.Println(full + ":\n" + content)
+		err := ioutil.WriteFile(*dst+"/"+file.Name(), []byte(content), 0644)
+		check(err)
 	}
 }
