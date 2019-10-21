@@ -33,6 +33,7 @@ type FrontMatter struct {
 	Categories  []string
 	Keywords    string
 	Description string
+	Image       string
 }
 
 func check(e error) {
@@ -91,6 +92,9 @@ func parse(f string) string {
 	}
 	if fm.Description != "" {
 		result += "description: " + fm.Description + "\n"
+	}
+	if fm.Image != "" {
+		result += "image: " + fm.Image + "\n"
 	}
 	result += "---\n" + body
 	return result
